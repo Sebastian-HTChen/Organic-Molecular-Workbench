@@ -1,0 +1,4 @@
+fastapi==0.162.2
+pydantic>=2.10,<3
+rdkit==2026.9.1
+uvicorn[standard]>=0.34,<1

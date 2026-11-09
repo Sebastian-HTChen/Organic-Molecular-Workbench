@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 200 17% 96%;
+    --foreground: 200 18% 12%;
+    --panel: 0 0% 100%;
+    --muted: 200 14% 92%;
+    --muted-foreground: 200 8% 43%;
+    --border: 200 13% 83%;
+    --input: 200 13% 78%;
+    --primary: 174 75% 32%;
+    --primary-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 210 17% 7%;
+    --foreground: 180 12% 90%;
+    --panel: 200 15% 10%;
+    --muted: 200 12% 15%;
+    --muted-foreground: 200 8% 59%;
+    --border: 200 12% 20%;
+    --input: 200 12% 27%;
+    --primary: 173 67% 47%;
+    --primary-foreground: 190 40% 7%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply m-0 overflow-hidden bg-background font-sans text-foreground antialiased;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    @apply bg-primary/30;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .panel-heading {
+    @apply flex h-9 items-center justify-between border-b border-border px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-[11px] font-medium text-muted-foreground;
+  }
+
+  .text-input {
+    @apply w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary/30;
+  }
+
+  .data-value {
+    @apply font-mono text-[11px] tabular-nums text-foreground;
+  }
+}
+
+.viewport-grid {
+  background-image:
+    linear-gradient(rgb(128 128 128 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(128 128 128 / 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.viewer-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.viewer-canvas canvas {
+  display: block;
+  outline: none;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 160ms ease-out;
+}
