@@ -61,6 +61,27 @@ export function generateFromSmiles(smiles: string, name: string): Promise<Molecu
   });
 }
 
+export function generateFromMolBlock(molBlock: string, name: string): Promise<Molecule> {
+  return request<Molecule>("/molecules/from-mol", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mol_block: molBlock, name }),
+  });
+}
+
+export function optimizeGeometry(
+  molBlock: string,
+  name: string,
+  method: "MMFF94" | "UFF",
+  maxIterations: number,
+): Promise<Molecule> {
+  return request<Molecule>("/molecules/optimize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mol_block: molBlock, name, method, max_iterations: maxIterations }),
+  });
+}
+
 export function getHealth(): Promise<HealthStatus> {
   return request<HealthStatus>("/health");
 }

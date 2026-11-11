@@ -24,6 +24,7 @@ const molecule = {
   ],
   conformer: { method: "ETKDGv3", seed: 42, coordinate_unit: "angstrom" },
   mol_block: "Water\n  RDKit\n",
+  mol_block_2d: "Water\n  RDKit\n",
 } as Molecule;
 
 describe("molecule utilities", () => {

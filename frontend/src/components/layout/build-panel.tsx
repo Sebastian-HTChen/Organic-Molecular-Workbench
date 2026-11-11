@@ -12,6 +12,8 @@ interface BuildPanelProps {
   error: string | null;
   onSmilesChange: (value: string) => void;
   onNameChange: (value: string) => void;
+  activeElement: string;
+  onElementSelect: (element: string) => void;
   onGenerate: () => void;
 }
 
@@ -20,7 +22,12 @@ const examples = [
   { name: "Benzene", smiles: "c1ccccc1" },
   { name: "Acetic acid", smiles: "CC(=O)O" },
 ];
-const elements = ["H", "C", "N", "O", "F", "P", "S", "Cl", "Br", "I"];
+const elements = [
+  "H", "C", "N", "O", "F", "P", "S", "Cl", "Br", "I",
+  "Li", "Na", "K", "Mg", "Ca", "Al", "Ti", "V", "Cr", "Mn",
+  "Fe", "Co", "Ni", "Cu", "Zn", "Mo", "Pd", "Ag", "Cd", "Sn",
+  "Pt", "Au", "Hg", "Pb",
+];
 
 export function BuildPanel({
   smiles,
@@ -30,6 +37,8 @@ export function BuildPanel({
   error,
   onSmilesChange,
   onNameChange,
+  activeElement,
+  onElementSelect,
   onGenerate,
 }: BuildPanelProps) {
   function submit(event: FormEvent) {
@@ -127,13 +136,13 @@ export function BuildPanel({
           </section>
         )}
 
-        <section className="p-3 opacity-55">
+        <section className="p-3">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Atom palette
             </h3>
-            <span className="rounded border border-border px-1 py-0.5 text-[8px] text-muted-foreground">
-              PHASE 2
+            <span className="rounded border border-primary/30 px-1 py-0.5 font-mono text-[8px] text-primary">
+              {activeElement}
             </span>
           </div>
           <div className="grid grid-cols-5 gap-1.5">
@@ -141,16 +150,17 @@ export function BuildPanel({
               <button
                 key={element}
                 type="button"
-                disabled
-                title={`${element} atom drawing is planned for Phase 2`}
-                className="h-7 rounded border border-border font-mono text-[11px] text-muted-foreground"
+                aria-pressed={activeElement === element}
+                title={`Draw or replace with ${element} in the 2D editor`}
+                onClick={() => onElementSelect(element)}
+                className={`h-7 rounded border font-mono text-[11px] transition-colors ${activeElement === element ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
                 {element}
               </button>
             ))}
           </div>
           <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
-            Ketcher drawing, atom editing, and bond tools will operate on the same molecular model.
+            Select an organic or metal element, then click the 2D canvas to add or replace an atom. Use Ketcher's bond tools to connect atoms. RDKit validates metal valence and bonding when generating 3D.
           </p>
         </section>
       </div>

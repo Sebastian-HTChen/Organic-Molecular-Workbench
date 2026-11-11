@@ -125,6 +125,18 @@ export function PropertiesPanel({ molecule, selection, onSelectionChange }: Prop
               </dl>
             </section>
 
+            {molecule.optimization && (
+              <section className="border-b border-border p-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Force-field optimization</h3>
+                <dl>
+                  <DataRow label="Method / status" value={`${molecule.optimization.method} · ${molecule.optimization.converged ? "converged" : "not converged"}`} />
+                  <DataRow label="Potential energy" value={`${molecule.optimization.energy_after.toFixed(6)} kcal/mol`} />
+                  <DataRow label="Steps" value={String(molecule.optimization.steps)} />
+                </dl>
+                <p className="mt-2 text-[9px] leading-4 text-muted-foreground">Classical potential energy only; not DFT energy or Gibbs free energy.</p>
+              </section>
+            )}
+
             <section className="border-b border-border p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Ordered selection</h3>
@@ -176,7 +188,7 @@ export function PropertiesPanel({ molecule, selection, onSelectionChange }: Prop
 
             <div className="flex gap-2 p-3 text-[9px] leading-4 text-muted-foreground">
               <Info size={12} className="mt-0.5 shrink-0" />
-              <p>Values are calculated from the active RDKit conformer. No force-field or quantum-chemical energy is reported in Phase 1.</p>
+              <p>Geometric values are calculated from the active RDKit conformer. Optional MMFF94/UFF results are classical potential energies, not quantum-chemical energies.</p>
             </div>
           </>
         )}

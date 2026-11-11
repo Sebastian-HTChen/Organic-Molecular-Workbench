@@ -1,6 +1,8 @@
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { OptimizationDialog } from "@/components/calculation/optimization-dialog";
+import { OrcaDialog } from "@/components/calculation/orca-dialog";
 import { BuildPanel } from "@/components/layout/build-panel";
 import { PropertiesPanel } from "@/components/layout/properties-panel";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
@@ -8,8 +10,9 @@ import { StatusBar } from "@/components/layout/status-bar";
 import { ToolRail } from "@/components/layout/tool-rail";
 import { TopBar } from "@/components/layout/top-bar";
 import { ResizeHandle } from "@/components/ui/resize-handle";
+import type { KetcherEditorHandle } from "@/components/viewport/ketcher-editor";
 import { MoleculeViewport } from "@/components/viewport/molecule-viewport";
-import { ApiError, generateFromSmiles, getHealth } from "@/features/molecule/api";
+import { ApiError, generateFromMolBlock, generateFromSmiles, getHealth } from "@/features/molecule/api";
 import { downloadMolecule } from "@/features/molecule/export";
 import { toggleSelection } from "@/features/molecule/molecule-utils";
 import type { ExportFormat, Molecule } from "@/features/molecule/types";
@@ -24,10 +27,17 @@ export default function App() {
   const [name, setName] = useState("Ethanol");
   const [selection, setSelection] = useState<number[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
+  const [activeElement, setActiveElement] = useState("C");
+  const [editorReady, setEditorReady] = useState(false);
+  const editorRef = useRef<KetcherEditorHandle>(null);
   const [error, setError] = useState<string | null>(null);
   const [backend, setBackend] = useState<"checking" | "online" | "offline">("checking");
   const [rdkitVersion, setRdkitVersion] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [orcaOpen, setOrcaOpen] = useState(false);
+  const [optimizationOpen, setOptimizationOpen] = useState(false);
+  const [orcaPrompt, setOrcaPrompt] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() =>
     window.localStorage.getItem("omw-theme") === "light" ? "light" : "dark",
   );
@@ -61,19 +71,26 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 3500);
+    const timer = window.setTimeout(() => {
+      setToast(null);
+      setOrcaPrompt(false);
+    }, orcaPrompt ? 8000 : 3500);
     return () => window.clearTimeout(timer);
-  }, [toast]);
+  }, [toast, orcaPrompt]);
 
   async function handleGenerate() {
-    if (!smiles.trim() || generating) return;
+    if ((viewMode === "3d" && !smiles.trim()) || generating) return;
     const currentRequest = ++requestId.current;
     setGenerating(true);
     setError(null);
     try {
-      const result = await generateFromSmiles(smiles, name);
+      const result = viewMode === "2d"
+        ? await generateFromMolBlock(await editorRef.current!.getMolfile(), name)
+        : await generateFromSmiles(smiles, name);
       if (currentRequest !== requestId.current) return;
       setMolecule(result);
+      setSmiles(result.canonical_smiles);
+      setViewMode("3d");
       setSelection([]);
       setBackend("online");
       setToast(`${result.name} · 3D conformer generated with RDKit`);
@@ -97,6 +114,7 @@ export default function App() {
     setSelection([]);
     setSmiles("");
     setName("Untitled molecule");
+    void editorRef.current?.clear();
     setGenerating(false);
     setError(null);
     setToast("New empty molecule workspace");
@@ -105,6 +123,7 @@ export default function App() {
   function handleExport(format: ExportFormat) {
     if (!molecule) return;
     downloadMolecule(molecule, format);
+    setOrcaPrompt(format === "xyz" || format === "smiles");
     setToast(
       format === "xyz"
         ? "XYZ exported · bond-order topology is not included"
@@ -116,11 +135,17 @@ export default function App() {
     <div className="flex h-screen min-w-[960px] flex-col bg-background text-foreground">
       <TopBar
         molecule={molecule}
-        canGenerate={Boolean(smiles.trim())}
+        canGenerate={viewMode === "2d" ? editorReady : Boolean(smiles.trim())}
         generating={generating}
         onNew={handleNew}
         onGenerate={handleGenerate}
         onExport={handleExport}
+        onOptimize={() => setOptimizationOpen(true)}
+        onGenerateOrca={() => {
+          setOrcaPrompt(false);
+          setToast(null);
+          setOrcaOpen(true);
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
@@ -134,6 +159,12 @@ export default function App() {
             error={error}
             onSmilesChange={setSmiles}
             onNameChange={setName}
+            activeElement={activeElement}
+            onElementSelect={(element) => {
+              setActiveElement(element);
+              setViewMode("2d");
+              editorRef.current?.setElement(element);
+            }}
             onGenerate={handleGenerate}
           />
         </div>
@@ -146,6 +177,10 @@ export default function App() {
           generating={generating}
           selectedAtoms={selection}
           theme={theme}
+          viewMode={viewMode}
+          editorRef={editorRef}
+          onViewModeChange={setViewMode}
+          onEditorReady={() => setEditorReady(true)}
           onSelect={(atomIndex) => setSelection((current) => toggleSelection(current, atomIndex))}
         />
         <ResizeHandle
@@ -163,6 +198,20 @@ export default function App() {
         selectedCount={selection.length}
       />
 
+      <OptimizationDialog
+        open={optimizationOpen}
+        molecule={molecule}
+        onOptimized={(optimized) => {
+          setMolecule(optimized);
+          setViewMode("3d");
+          const result = optimized.optimization;
+          if (result) {
+            setToast(`${result.method} · ${result.converged ? "converged" : "not converged"} · ${result.energy_after.toFixed(4)} kcal/mol`);
+          }
+        }}
+        onClose={() => setOptimizationOpen(false)}
+      />
+      <OrcaDialog open={orcaOpen} molecule={molecule} onClose={() => setOrcaOpen(false)} />
       <SettingsDialog
         open={settingsOpen}
         theme={theme}
@@ -173,6 +222,19 @@ export default function App() {
         <div role="status" className="animate-fade-in fixed bottom-9 right-4 z-40 flex max-w-md items-center gap-2 rounded-lg border border-border bg-panel px-3 py-2.5 text-[11px] shadow-xl">
           <CheckCircle2 size={14} className="shrink-0 text-primary" />
           <span>{toast}</span>
+          {orcaPrompt && (
+            <button
+              type="button"
+              className="shrink-0 rounded border border-primary/40 px-2 py-1 font-medium text-primary hover:bg-primary/10"
+              onClick={() => {
+                setOrcaOpen(true);
+                setOrcaPrompt(false);
+                setToast(null);
+              }}
+            >
+              Generate ORCA .inp?
+            </button>
+          )}
         </div>
       )}
     </div>

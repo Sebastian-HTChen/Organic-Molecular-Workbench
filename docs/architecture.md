@@ -4,7 +4,9 @@
 
 The current MVP implements the complete path **SMILES → FastAPI → RDKit ETKDGv3 → explicit-hydrogen molecular model + SDF → 3Dmol.js**. It also provides atom selection, live geometric measurements, and real SDF/MOL/XYZ/SMILES export.
 
-Not yet implemented: Ketcher editing, file import, force-field optimization, undo/redo, geometry editing, DFT, and HPC submission. These controls are disabled or identified by a future-phase label. No calculation result is synthesized in the browser.
+Ketcher 3.18 provides real 2D editing. Its MOL output is posted to `POST /api/v1/molecules/from-mol`, sanitized, and embedded with the same RDKit pipeline. The API returns independent 2D and 3D molblocks. The atom palette selects Ketcher's actual atom tool; zoom controls call 3Dmol.js `zoom` without resetting the camera.
+
+Not yet implemented: file import, application-level undo/redo, geometry editing, DFT execution, and HPC submission. These controls are disabled or identified by a future-phase label. No calculation result is synthesized in the browser.
 
 ## Runtime data flow
 
@@ -19,7 +21,7 @@ RDKit owns chemical parsing and conformer generation. 3Dmol.js owns rendering an
 ## Frontend modules
 
 - `components/layout`: top actions, structure builder, tool rail, properties, settings, and status.
-- `components/viewport`: 3Dmol.js lifecycle, representation, labels, visibility, selection, and camera fitting.
+- `components/viewport`: persistent Ketcher 2D editor, 3Dmol.js lifecycle, representation, labels, visibility, selection, and camera zoom/fitting.
 - `components/ui`: reusable shadcn/ui-style controls built with CVA, clsx, and Tailwind Merge.
 - `features/molecule/api.ts`: HTTP errors and API contracts.
 - `features/molecule/types.ts`: normalized molecule contract.
@@ -39,14 +41,16 @@ RDKit owns chemical parsing and conformer generation. 3Dmol.js owns rendering an
 - `schemas/molecule.py`: validated request and response models.
 - `services/chemistry/molecules.py`: RDKit parsing and conformer generation.
 - `services/chemistry/errors.py`: domain errors mapped to structured HTTP responses.
-- `services/calculation/base.py`: abstract provider and calculation task contract. No provider is registered and no calculation endpoint is exposed.
+- `services/calculation/base.py`: abstract provider and calculation task contract. No execution provider is registered.
+- `services/calculation/orca.py`: validates an RDKit 3D molblock and serializes actual Cartesian coordinates into an ORCA input. `POST /api/v1/calculations/orca/input` allowlists supported functionals, basis sets, and task types. It does not run ORCA or submit jobs.
+- `components/calculation/orca-dialog.tsx`: task, functional, basis, charge, multiplicity, and resource controls with live backend-generated preview and practical starting configurations.
 
 ## Planned phases
 
 ### Phase 2 — editing, optimization, and import
 
 - Integrate `ketcher-react`/`ketcher-core` with React 18. Ketcher MOL input/output is converted through the backend into the same normalized model. The current 3D viewport is not represented as a 2D editor.
-- Add MMFF94 and UFF optimization endpoints. Record force-field type, return status, energy, iteration metadata where RDKit exposes it, and convergence separately. Energies are **force-field potential energies**, not DFT total energies or Gibbs free energies.
+- MMFF94 and UFF optimization is implemented at `POST /api/v1/molecules/optimize`. `services/chemistry/optimization.py` checks parameter coverage, performs actual single-step minimization calls, counts iterations, and reports initial/final energies and convergence separately. Energies are **force-field potential energies**, not DFT total energies or Gibbs free energies.
 - Import XYZ, SDF, MOL, and SMILES. Preserve SDF/MOL topology and charges. For XYZ, use explicit connectivity perception and report inferred topology, bond-order limitations, and failures.
 - Add undo/redo around immutable molecular-model snapshots.
 
@@ -59,7 +63,7 @@ RDKit owns chemical parsing and conformer generation. 3Dmol.js owns rendering an
 
 ### Phase 4 — calculation providers
 
-Implement ORCA/Gaussian input writers behind `CalculationProvider`. Job submission belongs in a separate asynchronous service with persistent task IDs, status polling, logs, and cancellation. DFT optimization, frequency, single-point energy, Gibbs free energy, and HPC submission remain unavailable until a real provider and execution backend are configured.
+Extend the existing ORCA input writer and add Gaussian input generation behind the calculation module. Job submission belongs in a separate asynchronous service with persistent task IDs, status polling, logs, and cancellation. DFT optimization, frequency, single-point energy, Gibbs free energy, and HPC submission remain unavailable until a real provider and execution backend are configured. Generating an input file does not execute these calculations.
 
 ## Storage and compatibility
 

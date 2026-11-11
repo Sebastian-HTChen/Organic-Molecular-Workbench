@@ -21,6 +21,8 @@ interface TopBarProps {
   onNew: () => void;
   onGenerate: () => void;
   onExport: (format: ExportFormat) => void;
+  onGenerateOrca: () => void;
+  onOptimize: () => void;
   onOpenSettings: () => void;
 }
 
@@ -38,6 +40,8 @@ export function TopBar({
   onNew,
   onGenerate,
   onExport,
+  onGenerateOrca,
+  onOptimize,
   onOpenSettings,
 }: TopBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -89,7 +93,7 @@ export function TopBar({
       <Button size="sm" disabled={!canGenerate || generating} onClick={onGenerate}>
         <Box size={13} /> Generate 3D
       </Button>
-      <Button variant="outline" size="sm" disabled title="MMFF94 / UFF optimization is planned for Phase 2">
+      <Button variant="outline" size="sm" disabled={!molecule} onClick={onOptimize}>
         Optimize Geometry
       </Button>
 
@@ -122,6 +126,16 @@ export function TopBar({
                   <span className="text-[10px] leading-4 text-muted-foreground">{format.detail}</span>
                 </button>
               ))}
+              <button
+                className="mt-1 flex w-full items-start gap-3 rounded-md border-t border-border px-2.5 py-2 text-left hover:bg-muted"
+                onClick={() => {
+                  setExportOpen(false);
+                  onGenerateOrca();
+                }}
+              >
+                <span className="w-12 font-mono text-[11px] font-semibold text-primary">INP</span>
+                <span className="text-[10px] leading-4 text-muted-foreground">Configure an ORCA input file</span>
+              </button>
             </div>
           </>
         )}

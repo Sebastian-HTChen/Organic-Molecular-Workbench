@@ -8,6 +8,7 @@ from app.schemas.molecule import (
     BondData,
     ConformerData,
     MoleculeResponse,
+    OptimizationResult,
     Vector3,
 )
 from app.services.chemistry.errors import ChemistryError
@@ -24,6 +25,33 @@ def generate_from_smiles(smiles: str, name: str) -> MoleculeResponse:
             "invalid_smiles",
             "RDKit could not parse this SMILES. Check syntax, valence, and aromaticity.",
         )
+    return _generate_3d(base_molecule, name, source_smiles=smiles)
+
+
+def generate_from_mol_block(mol_block: str, name: str) -> MoleculeResponse:
+    try:
+        base_molecule = Chem.MolFromMolBlock(mol_block, sanitize=True, removeHs=False)
+    except ValueError:
+        base_molecule = None
+    if base_molecule is None:
+        raise ChemistryError(
+            "invalid_mol_block",
+            "RDKit could not parse this MOL structure. Check atom valence, bonds, and charges.",
+        )
+    if base_molecule.GetNumAtoms() == 0:
+        raise ChemistryError(
+            "empty_molecule",
+            "The 2D editor is empty. Draw at least one atom before generating 3D.",
+        )
+    canonical_smiles = Chem.MolToSmiles(base_molecule, canonical=True)
+    return _generate_3d(base_molecule, name, source_smiles=canonical_smiles)
+
+
+def _generate_3d(
+    base_molecule: Chem.Mol,
+    name: str,
+    source_smiles: str,
+) -> MoleculeResponse:
     if base_molecule.GetNumAtoms() > MAX_BASE_ATOMS:
         raise ChemistryError(
             "molecule_too_large",
@@ -55,6 +83,16 @@ def generate_from_smiles(smiles: str, name: str) -> MoleculeResponse:
             "Check stereochemistry and structural constraints.",
         )
 
+    return molecule_response(molecule, name, source_smiles=source_smiles)
+
+
+def molecule_response(
+    molecule: Chem.Mol,
+    name: str,
+    optimization: OptimizationResult | None = None,
+    source_smiles: str | None = None,
+) -> MoleculeResponse:
+    base_molecule = Chem.RemoveHs(Chem.Mol(molecule))
     conformer = molecule.GetConformer()
     atoms = [
         AtomData(
@@ -85,10 +123,15 @@ def generate_from_smiles(smiles: str, name: str) -> MoleculeResponse:
         for bond in molecule.GetBonds()
     ]
 
+    editor_molecule = Chem.Mol(base_molecule)
+    editor_molecule.RemoveAllConformers()
+    AllChem.Compute2DCoords(editor_molecule)
+    editor_molecule.SetProp("_Name", name)
+
     return MoleculeResponse(
         id=str(uuid4()),
         name=name,
-        source_smiles=smiles,
+        source_smiles=source_smiles or Chem.MolToSmiles(base_molecule, canonical=True),
         canonical_smiles=Chem.MolToSmiles(base_molecule, canonical=True),
         formula=rdMolDescriptors.CalcMolFormula(molecule),
         molecular_weight=Descriptors.MolWt(molecule),
@@ -98,4 +141,6 @@ def generate_from_smiles(smiles: str, name: str) -> MoleculeResponse:
         bonds=bonds,
         conformer=ConformerData(seed=RANDOM_SEED),
         mol_block=Chem.MolToMolBlock(molecule, kekulize=True),
+        mol_block_2d=Chem.MolToMolBlock(editor_molecule, kekulize=True),
+        optimization=optimization,
     )

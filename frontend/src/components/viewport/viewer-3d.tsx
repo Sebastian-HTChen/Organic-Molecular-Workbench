@@ -11,6 +11,7 @@ interface Viewer3DProps {
   showLabels: boolean;
   selectedAtoms: number[];
   fitSignal: number;
+  zoomCommand: { direction: 1 | -1; serial: number };
   theme: "dark" | "light";
   onSelect: (atomIndex: number) => void;
 }
@@ -44,6 +45,7 @@ export function Viewer3D({
   showLabels,
   selectedAtoms,
   fitSignal,
+  zoomCommand,
   theme,
   onSelect,
 }: Viewer3DProps) {
@@ -142,6 +144,14 @@ export function Viewer3D({
     viewer.zoomTo();
     viewer.render();
   }, [fitSignal]);
+
+  useEffect(() => {
+    if (zoomCommand.serial === 0) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.zoom(zoomCommand.direction === 1 ? 1.25 : 0.8, 150);
+    viewer.render();
+  }, [zoomCommand]);
 
   return (
     <div className="absolute inset-0">

@@ -41,6 +41,15 @@ export interface Molecule {
     coordinate_unit: "angstrom";
   };
   mol_block: string;
+  mol_block_2d: string;
+  optimization?: {
+    method: "MMFF94" | "UFF";
+    energy_before: number;
+    energy_after: number;
+    energy_unit: "kcal/mol";
+    steps: number;
+    converged: boolean;
+  } | null;
 }
 
 export interface HealthStatus {
