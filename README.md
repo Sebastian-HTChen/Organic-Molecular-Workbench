@@ -4,9 +4,43 @@
 
 本项目使用真实 FastAPI/RDKit 后端，不使用假分子数据、假能量或假 DFT 结果。所有计算均在使用者自己的电脑上完成，无需上传分子数据。
 
-## 下载并运行：其他用户快速开始
+## 一键启动（推荐）
 
-使用本项目需要同时运行 FastAPI 后端和 Vite 前端。无需预先安装 RDKit，后端依赖会安装在项目自己的隔离环境中，不修改系统 Python 的 RDKit。
+准备 Python 3.12、Node.js 24/npm 11 和支持 WebGL 的浏览器，然后获取项目：
+
+```bash
+git clone https://github.com/Sebastian-HTChen/Organic-Molecular-Workbench.git
+cd Organic-Molecular-Workbench
+```
+
+也可以在仓库页面选择 **Code → Download ZIP**，解压后进入项目目录。
+
+**Windows：双击根目录的 `start-workbench.cmd`。**
+
+也可以在项目根目录使用命令：
+
+```bash
+# Windows
+python scripts/workbench.py
+
+# macOS / Linux
+python3 scripts/workbench.py
+```
+
+启动器会自动完成以下操作：
+
+1. 首次运行时创建 `backend/.venv` 并安装后端依赖，缺少前端依赖时执行 `npm ci`。
+2. 同时启动 FastAPI 和 Vite，并将两个服务的日志显示在同一个终端中。
+3. 等待前后端就绪后自动打开 <http://127.0.0.1:5173>。
+4. 在终端按 **Ctrl+C**，或输入 **q** 后回车，同时停止前端和后端。
+
+保持这个终端开启即可使用工作台。首次安装依赖需要联网；后续启动无需重复安装。如果检测到服务已经运行，启动器只会打开页面，不会重复启动服务。添加 `--no-browser` 参数可禁止自动打开浏览器。
+
+在 Kimi Code 中将本项目目录作为工作区打开后，也可以调用 `/skill:organic-workbench`。Skill 只是快捷入口，不是运行项目的必要条件。
+
+## 手动分步安装与启动
+
+如果一键启动失败，或希望分别管理两个服务，可以使用以下步骤。无需预先安装 RDKit，后端依赖会安装在项目自己的隔离环境中，不修改系统 Python 的 RDKit。
 
 ### 1. 准备环境
 

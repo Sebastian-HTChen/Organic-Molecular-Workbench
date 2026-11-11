@@ -27,6 +27,12 @@ RDKit owns chemical parsing and conformer generation. 3Dmol.js owns rendering an
 - `features/molecule/export.ts`: file serialization and browser download.
 - `App.tsx`: application state and stale-request protection.
 
+## Local launcher and project skill
+
+- `scripts/workbench.py`: cross-platform process launcher. It checks/install project-local dependencies, starts Uvicorn without reload and Vite directly through Node, waits for both HTTP endpoints, opens the browser, and terminates both child processes on exit.
+- `start-workbench.cmd`: Windows double-click entry point.
+- `.kimi-code/skills/organic-workbench/SKILL.md`: optional Kimi Code project skill that delegates startup to the same launcher. The skill does not replace the standalone launcher or implement a separate service lifecycle.
+
 ## Backend modules
 
 - `api/routes`: transport-only FastAPI endpoints.
