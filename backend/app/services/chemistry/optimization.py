@@ -51,4 +51,4 @@ def optimize_geometry(request: OptimizationRequest) -> MoleculeResponse:
         steps=steps,
         converged=converged,
     )
-    return molecule_response(molecule, request.name, result)
+    return molecule_response(molecule, request.name, result, provenance=request.provenance)

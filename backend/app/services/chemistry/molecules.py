@@ -9,6 +9,7 @@ from app.schemas.molecule import (
     ConformerData,
     MoleculeResponse,
     OptimizationResult,
+    StructureProvenance,
     Vector3,
 )
 from app.services.chemistry.errors import ChemistryError
@@ -25,7 +26,7 @@ def generate_from_smiles(smiles: str, name: str) -> MoleculeResponse:
             "invalid_smiles",
             "RDKit could not parse this SMILES. Check syntax, valence, and aromaticity.",
         )
-    return _generate_3d(base_molecule, name, source_smiles=smiles)
+    return _generate_3d(base_molecule, name, source_smiles=smiles, source_format="SMILES")
 
 
 def generate_from_mol_block(mol_block: str, name: str) -> MoleculeResponse:
@@ -44,13 +45,14 @@ def generate_from_mol_block(mol_block: str, name: str) -> MoleculeResponse:
             "The 2D editor is empty. Draw at least one atom before generating 3D.",
         )
     canonical_smiles = Chem.MolToSmiles(base_molecule, canonical=True)
-    return _generate_3d(base_molecule, name, source_smiles=canonical_smiles)
+    return _generate_3d(base_molecule, name, source_smiles=canonical_smiles, source_format="2D MOL")
 
 
 def _generate_3d(
     base_molecule: Chem.Mol,
     name: str,
     source_smiles: str,
+    source_format: str,
 ) -> MoleculeResponse:
     if base_molecule.GetNumAtoms() > MAX_BASE_ATOMS:
         raise ChemistryError(
@@ -83,7 +85,7 @@ def _generate_3d(
             "Check stereochemistry and structural constraints.",
         )
 
-    return molecule_response(molecule, name, source_smiles=source_smiles)
+    return molecule_response(molecule, name, source_smiles=source_smiles, source_format=source_format)
 
 
 def molecule_response(
@@ -91,6 +93,8 @@ def molecule_response(
     name: str,
     optimization: OptimizationResult | None = None,
     source_smiles: str | None = None,
+    source_format: str = "MOL",
+    provenance: StructureProvenance | None = None,
 ) -> MoleculeResponse:
     base_molecule = Chem.RemoveHs(Chem.Mol(molecule))
     conformer = molecule.GetConformer()
@@ -119,6 +123,7 @@ def molecule_response(
             bond_type=str(bond.GetBondType()),
             is_aromatic=bond.GetIsAromatic(),
             is_in_ring=bond.IsInRing(),
+            source=provenance.topology_source if provenance and provenance.topology_source != "none" else ("file" if optimization else "generated"),
         )
         for bond in molecule.GetBonds()
     ]
@@ -127,6 +132,11 @@ def molecule_response(
     editor_molecule.RemoveAllConformers()
     AllChem.Compute2DCoords(editor_molecule)
     editor_molecule.SetProp("_Name", name)
+    total_charge = sum(atom.GetFormalCharge() for atom in molecule.GetAtoms())
+    electron_count = sum(
+        atom.GetAtomicNum() + atom.GetTotalNumHs(includeNeighbors=True)
+        for atom in molecule.GetAtoms()
+    ) - total_charge
 
     return MoleculeResponse(
         id=str(uuid4()),
@@ -139,8 +149,15 @@ def molecule_response(
         bond_count=molecule.GetNumBonds(),
         atoms=atoms,
         bonds=bonds,
-        conformer=ConformerData(seed=RANDOM_SEED),
+        conformer=ConformerData(seed=RANDOM_SEED, method=f"{optimization.method} optimized" if optimization else "ETKDGv3"),
         mol_block=Chem.MolToMolBlock(molecule, kekulize=True),
         mol_block_2d=Chem.MolToMolBlock(editor_molecule, kekulize=True),
         optimization=optimization,
+        provenance=provenance or StructureProvenance(
+            source_format=source_format,
+            topology_source="generated" if optimization is None else "file",
+            charge_source="file" if source_format in {"2D MOL", "MOL"} else "inferred",
+            total_charge=total_charge,
+            multiplicity=2 if electron_count % 2 else 1,
+        ),
     )

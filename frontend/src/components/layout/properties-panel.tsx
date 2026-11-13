@@ -1,5 +1,6 @@
 import { Info, X } from "lucide-react";
 
+import { StructureSettings } from "@/components/imports/structure-settings";
 import { bondAngle, dihedralAngle, distance } from "@/features/molecule/geometry";
 import { getBondBetween, getNeighbors } from "@/features/molecule/molecule-utils";
 import type { AtomData, Molecule } from "@/features/molecule/types";
@@ -8,6 +9,7 @@ interface PropertiesPanelProps {
   molecule: Molecule | null;
   selection: number[];
   onSelectionChange: (selection: number[]) => void;
+  onMoleculeUpdate: (molecule: Molecule) => void;
 }
 
 function DataRow({ label, value }: { label: string; value: string }) {
@@ -36,6 +38,7 @@ function AtomDetails({ molecule, atom }: { molecule: Molecule; atom: AtomData })
         <dl>
           <DataRow label="Element" value={atom.element} />
           <DataRow label="Formal charge" value={atom.formal_charge > 0 ? `+${atom.formal_charge}` : String(atom.formal_charge)} />
+          {atom.partial_charge !== null && atom.partial_charge !== undefined && <DataRow label="Partial charge (MOL2)" value={atom.partial_charge.toFixed(6)} />}
           <DataRow label="Aromatic" value={atom.is_aromatic ? "Yes" : "No"} />
           {atom.isotope > 0 && <DataRow label="Isotope" value={String(atom.isotope)} />}
         </dl>
@@ -71,7 +74,7 @@ function AtomDetails({ molecule, atom }: { molecule: Molecule; atom: AtomData })
   );
 }
 
-export function PropertiesPanel({ molecule, selection, onSelectionChange }: PropertiesPanelProps) {
+export function PropertiesPanel({ molecule, selection, onSelectionChange, onMoleculeUpdate }: PropertiesPanelProps) {
   const atoms = molecule
     ? selection.map((index) => molecule.atoms[index - 1]).filter((atom): atom is AtomData => Boolean(atom))
     : [];
@@ -115,13 +118,14 @@ export function PropertiesPanel({ molecule, selection, onSelectionChange }: Prop
           </div>
         ) : (
           <>
+            <StructureSettings molecule={molecule} onUpdated={onMoleculeUpdate} />
             <section className="border-b border-border p-3">
               <div className="mb-1 text-xs font-medium">{molecule.name}</div>
               <dl>
                 <DataRow label="Molecular formula" value={molecule.formula} />
                 <DataRow label="Molecular weight" value={`${molecule.molecular_weight.toFixed(3)} g/mol`} />
                 <DataRow label="Atoms / bonds" value={`${molecule.atom_count} / ${molecule.bond_count}`} />
-                <DataRow label="Conformer" value={`${molecule.conformer.method} · seed ${molecule.conformer.seed}`} />
+                <DataRow label="Conformer" value={`${molecule.conformer.method}${molecule.conformer.seed === null ? "" : ` · seed ${molecule.conformer.seed}`}`} />
               </dl>
             </section>
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import calculations, molecules, system
+from app.api.routes import calculations, imports, molecules, system
 from app.services.chemistry.errors import ChemistryError
 
 app = FastAPI(
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(system.router, prefix="/api/v1")
 app.include_router(molecules.router, prefix="/api/v1")
 app.include_router(calculations.router, prefix="/api/v1")
+app.include_router(imports.router, prefix="/api/v1")
 
 
 @app.exception_handler(ChemistryError)

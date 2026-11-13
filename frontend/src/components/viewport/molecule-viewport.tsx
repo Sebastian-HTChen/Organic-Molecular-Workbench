@@ -19,6 +19,7 @@ interface MoleculeViewportProps {
   editorRef: MutableRefObject<KetcherEditorHandle | null>;
   onViewModeChange: (mode: "2d" | "3d") => void;
   onEditorReady: () => void;
+  onHistoryChange: (history: { undo: number; redo: number }) => void;
   onSelect: (atomIndex: number) => void;
 }
 
@@ -31,6 +32,7 @@ export function MoleculeViewport({
   editorRef,
   onViewModeChange,
   onEditorReady,
+  onHistoryChange,
   onSelect,
 }: MoleculeViewportProps) {
   const [representation, setRepresentation] = useState<Representation>("ball-stick");
@@ -120,6 +122,7 @@ export function MoleculeViewport({
             moleculeId={molecule?.id}
             initialMolBlock={molecule?.mol_block_2d}
             onReady={onEditorReady}
+            onHistoryChange={onHistoryChange}
           />
         </div>
         <div className={viewMode === "3d" ? "absolute inset-0" : "hidden"}>

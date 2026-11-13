@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, init);
@@ -74,11 +74,12 @@ export function optimizeGeometry(
   name: string,
   method: "MMFF94" | "UFF",
   maxIterations: number,
+  provenance: Molecule["provenance"],
 ): Promise<Molecule> {
   return request<Molecule>("/molecules/optimize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mol_block: molBlock, name, method, max_iterations: maxIterations }),
+    body: JSON.stringify({ mol_block: molBlock, name, method, max_iterations: maxIterations, provenance }),
   });
 }
 

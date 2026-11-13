@@ -1,5 +1,13 @@
 import type { Ketcher } from "ketcher-core";
+import { Bond } from "ketcher-core";
 import { Editor } from "ketcher-react";
+interface MoleculeEditor {
+  tool: (name: string, options?: unknown) => unknown;
+  subscribe: (event: string, handler: () => void) => unknown;
+  historySize: () => EditorHistory;
+  undo: () => void;
+  redo: () => void;
+}
 import { StandaloneStructServiceProvider } from "ketcher-standalone";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
@@ -7,9 +15,18 @@ import "ketcher-react/dist/index.css";
 
 const structServiceProvider = new StandaloneStructServiceProvider();
 
+export type KetcherEditorTool = "select" | "atom" | "bond-single" | "bond-double" | "bond-triple" | "bond-aromatic" | "eraser";
+export interface EditorHistory {
+  undo: number;
+  redo: number;
+}
+
 export interface KetcherEditorHandle {
   getMolfile: () => Promise<string>;
   setElement: (element: string) => void;
+  setTool: (tool: KetcherEditorTool) => void;
+  undo: () => void;
+  redo: () => void;
   clear: () => Promise<void>;
 }
 
@@ -17,10 +34,11 @@ interface KetcherEditorProps {
   moleculeId?: string;
   initialMolBlock?: string;
   onReady: () => void;
+  onHistoryChange: (history: EditorHistory) => void;
 }
 
 export const KetcherEditor = forwardRef<KetcherEditorHandle, KetcherEditorProps>(
-  function KetcherEditor({ moleculeId, initialMolBlock, onReady }, ref) {
+  function KetcherEditor({ moleculeId, initialMolBlock, onReady, onHistoryChange }, ref) {
     const ketcherRef = useRef<Ketcher | null>(null);
     const loadedMoleculeId = useRef<string | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
@@ -33,21 +51,44 @@ export const KetcherEditor = forwardRef<KetcherEditorHandle, KetcherEditorProps>
       });
     }, [moleculeId, initialMolBlock]);
 
-    useImperativeHandle(ref, () => ({
-      getMolfile: async () => {
-        if (!ketcherRef.current) throw new Error("The 2D editor is still loading. Please try again.");
-        return ketcherRef.current.getMolfile();
-      },
-      setElement: (element) => {
-        const editor = ketcherRef.current?.editor as unknown as {
-          tool: (name: string, options: { label: string }) => void;
-        } | undefined;
-        editor?.tool("atom", { label: element });
-      },
-      clear: async () => {
-        await ketcherRef.current?.setMolecule("");
-      },
-    }), []);
+    useImperativeHandle(ref, () => {
+      function getEditor(): MoleculeEditor | undefined {
+        return ketcherRef.current?.editor as unknown as MoleculeEditor | undefined;
+      }
+
+      return {
+        getMolfile: async () => {
+          if (!ketcherRef.current) throw new Error("The 2D editor is still loading. Please try again.");
+          return ketcherRef.current.getMolfile();
+        },
+        setElement: (element) => {
+          getEditor()?.tool("atom", { label: element });
+        },
+        setTool: (tool) => {
+          const editor = getEditor();
+          if (!editor) return;
+          if (tool.startsWith("bond-")) {
+            const bondType = tool.slice(5).toUpperCase() as "SINGLE" | "DOUBLE" | "TRIPLE" | "AROMATIC";
+            editor.tool("bond", { type: Bond.PATTERN.TYPE[bondType], stereo: Bond.PATTERN.STEREO.NONE });
+          } else {
+            editor.tool(tool);
+          }
+        },
+        undo: () => {
+          getEditor()?.undo();
+          onHistoryChange(getEditor()?.historySize() ?? { undo: 0, redo: 0 });
+        },
+        redo: () => {
+          getEditor()?.redo();
+          onHistoryChange(getEditor()?.historySize() ?? { undo: 0, redo: 0 });
+        },
+        clear: async () => {
+          loadedMoleculeId.current = undefined;
+          await ketcherRef.current?.setMolecule("");
+          onHistoryChange(getEditor()?.historySize() ?? { undo: 0, redo: 0 });
+        },
+      };
+    }, [onHistoryChange]);
 
     return (
       <div className="ketcher-workspace absolute inset-0 overflow-hidden bg-white">
@@ -58,6 +99,9 @@ export const KetcherEditor = forwardRef<KetcherEditorHandle, KetcherEditorProps>
           errorHandler={(message) => setError(message)}
           onInit={(ketcher) => {
             ketcherRef.current = ketcher;
+            const editor = ketcher.editor as unknown as MoleculeEditor;
+            editor.subscribe("change", () => onHistoryChange(editor.historySize()));
+            onHistoryChange(editor.historySize());
             if (initialMolBlock && loadedMoleculeId.current !== moleculeId) {
               loadedMoleculeId.current = moleculeId;
               void ketcher.setMolecule(initialMolBlock).catch(() => {

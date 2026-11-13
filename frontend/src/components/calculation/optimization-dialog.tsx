@@ -27,7 +27,7 @@ export function OptimizationDialog({ open, molecule, onOptimized, onClose }: Opt
     setError(null);
     setResult(null);
     try {
-      const optimized = await optimizeGeometry(molecule.mol_block, molecule.name, method, maxIterations);
+      const optimized = await optimizeGeometry(molecule.mol_block, molecule.name, method, maxIterations, molecule.provenance);
       setResult(optimized);
       onOptimized(optimized);
     } catch (caught) {

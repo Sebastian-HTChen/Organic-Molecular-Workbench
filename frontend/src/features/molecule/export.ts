@@ -16,14 +16,19 @@ export function serializeXyz(molecule: Molecule): string {
   );
   return [
     String(molecule.atom_count),
-    `${molecule.name} | RDKit ETKDGv3 | XYZ contains no bond-order topology`,
+    `${molecule.name} | ${molecule.conformer.method} | XYZ contains no file-supplied bond-order topology`,
     ...coordinates,
     "",
   ].join("\n");
 }
 
 export function serializeMolecule(molecule: Molecule, format: ExportFormat): string {
-  if (format === "smiles") return `${molecule.canonical_smiles}\n`;
+  if (format === "smiles") {
+    if (!molecule.canonical_smiles.trim()) {
+      throw new Error("Canonical SMILES is unavailable for this topology. Export XYZ, MOL or SDF, or review the structure first.");
+    }
+    return `${molecule.canonical_smiles}\n`;
+  }
   if (format === "xyz") return serializeXyz(molecule);
   if (format === "sdf") return `${molecule.mol_block.trimEnd()}\n$$$$\n`;
   return molecule.mol_block;

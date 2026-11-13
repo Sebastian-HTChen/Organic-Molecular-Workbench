@@ -42,12 +42,23 @@ describe("molecule utilities", () => {
   it("exports XYZ with explicit topology limitation", () => {
     const lines = serializeXyz(molecule).split("\n");
     expect(lines[0]).toBe("3");
-    expect(lines[1]).toContain("no bond-order topology");
+    expect(lines[1]).toContain("no file-supplied bond-order topology");
     expect(lines).toHaveLength(6);
   });
 
   it("writes a valid SDF record terminator", () => {
     expect(serializeMolecule(molecule, "sdf").endsWith("\n$$$$\n")).toBe(true);
     expect(serializeMolecule(molecule, "smiles")).toBe("O\n");
+  });
+
+  it("keeps the imported coordinate method and rejects unavailable SMILES", () => {
+    const imported = {
+      ...molecule,
+      canonical_smiles: "",
+      conformer: { ...molecule.conformer, method: "imported", seed: null },
+    };
+    expect(serializeXyz(imported).split("\n")[1]).toContain("imported");
+    expect(serializeXyz(imported)).not.toContain("ETKDGv3");
+    expect(() => serializeMolecule(imported, "smiles")).toThrow(/unavailable/);
   });
 });

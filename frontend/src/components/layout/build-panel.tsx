@@ -13,7 +13,10 @@ interface BuildPanelProps {
   onSmilesChange: (value: string) => void;
   onNameChange: (value: string) => void;
   activeElement: string;
+  paletteDisabled: boolean;
   onElementSelect: (element: string) => void;
+  library: Molecule[];
+  onLibrarySelect: (molecule: Molecule) => void;
   onGenerate: () => void;
 }
 
@@ -38,7 +41,10 @@ export function BuildPanel({
   onSmilesChange,
   onNameChange,
   activeElement,
+  paletteDisabled,
   onElementSelect,
+  library,
+  onLibrarySelect,
   onGenerate,
 }: BuildPanelProps) {
   function submit(event: FormEvent) {
@@ -136,6 +142,21 @@ export function BuildPanel({
           </section>
         )}
 
+        {library.length > 0 && (
+          <section className="border-b border-border p-3">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Molecule library · {library.length}</h3>
+            <p className="mb-2 text-[9px] leading-4 text-muted-foreground">Imported structures in this session. Changes are not saved automatically; export structures to keep them.</p>
+            <div className="max-h-44 space-y-1 overflow-y-auto">
+              {library.map((item) => (
+                <button key={item.id} type="button" onClick={() => onLibrarySelect(item)} className={`w-full rounded-md border px-2 py-1.5 text-left ${molecule?.id === item.id ? "border-primary/40 bg-primary/10" : "border-transparent hover:bg-muted"}`}>
+                  <div className="truncate text-[10px] font-medium">{item.name}</div>
+                  <div className="mt-0.5 flex justify-between font-mono text-[9px] text-muted-foreground"><span>{item.formula}</span><span>{item.provenance.source_format}</span></div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="p-3">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -150,6 +171,7 @@ export function BuildPanel({
               <button
                 key={element}
                 type="button"
+                disabled={paletteDisabled}
                 aria-pressed={activeElement === element}
                 title={`Draw or replace with ${element} in the 2D editor`}
                 onClick={() => onElementSelect(element)}

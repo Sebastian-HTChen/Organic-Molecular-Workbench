@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { OptimizationDialog } from "@/components/calculation/optimization-dialog";
 import { OrcaDialog } from "@/components/calculation/orca-dialog";
+import { ImportDialog } from "@/components/imports/import-dialog";
 import { BuildPanel } from "@/components/layout/build-panel";
 import { PropertiesPanel } from "@/components/layout/properties-panel";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
@@ -10,7 +11,7 @@ import { StatusBar } from "@/components/layout/status-bar";
 import { ToolRail } from "@/components/layout/tool-rail";
 import { TopBar } from "@/components/layout/top-bar";
 import { ResizeHandle } from "@/components/ui/resize-handle";
-import type { KetcherEditorHandle } from "@/components/viewport/ketcher-editor";
+import type { KetcherEditorHandle, KetcherEditorTool } from "@/components/viewport/ketcher-editor";
 import { MoleculeViewport } from "@/components/viewport/molecule-viewport";
 import { ApiError, generateFromMolBlock, generateFromSmiles, getHealth } from "@/features/molecule/api";
 import { downloadMolecule } from "@/features/molecule/export";
@@ -29,7 +30,9 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
   const [activeElement, setActiveElement] = useState("C");
+  const [activeTool, setActiveTool] = useState<KetcherEditorTool>("select");
   const [editorReady, setEditorReady] = useState(false);
+  const [editorHistory, setEditorHistory] = useState({ undo: 0, redo: 0 });
   const editorRef = useRef<KetcherEditorHandle>(null);
   const [error, setError] = useState<string | null>(null);
   const [backend, setBackend] = useState<"checking" | "online" | "offline">("checking");
@@ -37,6 +40,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [orcaOpen, setOrcaOpen] = useState(false);
   const [optimizationOpen, setOptimizationOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [library, setLibrary] = useState<Molecule[]>([]);
   const [orcaPrompt, setOrcaPrompt] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() =>
     window.localStorage.getItem("omw-theme") === "light" ? "light" : "dark",
@@ -120,8 +125,28 @@ export default function App() {
     setToast("New empty molecule workspace");
   }
 
+  function openMolecule(opened: Molecule) {
+    setMolecule(opened);
+    setName(opened.name);
+    setSmiles(opened.canonical_smiles);
+    setSelection([]);
+    setViewMode("3d");
+    setImportOpen(false);
+    setError(null);
+  }
+
+  function updateMolecule(updated: Molecule) {
+    setMolecule(updated);
+    setLibrary((current) => current.map((item) => item.id === updated.id ? updated : item));
+  }
+
   function handleExport(format: ExportFormat) {
     if (!molecule) return;
+    if (format === "smiles" && !molecule.canonical_smiles.trim()) {
+      setError("Canonical SMILES is unavailable for this topology. Export XYZ, MOL or SDF instead, or review the structure first.");
+      setToast(null);
+      return;
+    }
     downloadMolecule(molecule, format);
     setOrcaPrompt(format === "xyz" || format === "smiles");
     setToast(
@@ -141,17 +166,40 @@ export default function App() {
         onGenerate={handleGenerate}
         onExport={handleExport}
         onOptimize={() => setOptimizationOpen(true)}
+        onOpenImport={() => setImportOpen(true)}
         onGenerateOrca={() => {
           setOrcaPrompt(false);
           setToast(null);
           setOrcaOpen(true);
         }}
         onOpenSettings={() => setSettingsOpen(true)}
+        canUndo={editorHistory.undo > 0}
+        canRedo={editorHistory.redo > 0}
+        onUndo={() => {
+          setViewMode("2d");
+          editorRef.current?.undo();
+        }}
+        onRedo={() => {
+          setViewMode("2d");
+          editorRef.current?.redo();
+        }}
       />
       <div className="flex min-h-0 flex-1">
-        <ToolRail />
+        <ToolRail
+          activeElement={activeElement}
+          activeTool={activeTool}
+          disabled={!editorReady}
+          onToolSelect={(tool) => {
+            setActiveTool(tool);
+            setViewMode("2d");
+            if (tool === "atom") editorRef.current?.setElement(activeElement);
+            else editorRef.current?.setTool(tool);
+          }}
+        />
         <div style={{ width: leftWidth }} className="min-h-0 shrink-0">
           <BuildPanel
+            library={library}
+            onLibrarySelect={openMolecule}
             smiles={smiles}
             name={name}
             molecule={molecule}
@@ -160,8 +208,10 @@ export default function App() {
             onSmilesChange={setSmiles}
             onNameChange={setName}
             activeElement={activeElement}
+            paletteDisabled={!editorReady}
             onElementSelect={(element) => {
               setActiveElement(element);
+              setActiveTool("atom");
               setViewMode("2d");
               editorRef.current?.setElement(element);
             }}
@@ -181,6 +231,7 @@ export default function App() {
           editorRef={editorRef}
           onViewModeChange={setViewMode}
           onEditorReady={() => setEditorReady(true)}
+          onHistoryChange={setEditorHistory}
           onSelect={(atomIndex) => setSelection((current) => toggleSelection(current, atomIndex))}
         />
         <ResizeHandle
@@ -188,7 +239,7 @@ export default function App() {
           onResize={(delta) => setRightWidth(clamp(rightWidth + delta, 280, 430))}
         />
         <div style={{ width: rightWidth }} className="min-h-0 shrink-0">
-          <PropertiesPanel molecule={molecule} selection={selection} onSelectionChange={setSelection} />
+          <PropertiesPanel molecule={molecule} selection={selection} onSelectionChange={setSelection} onMoleculeUpdate={updateMolecule} />
         </div>
       </div>
       <StatusBar
@@ -198,6 +249,18 @@ export default function App() {
         selectedCount={selection.length}
       />
 
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(result) => {
+          setLibrary((current) => [...current, ...result.molecules]);
+          if (result.molecules.length > 0) {
+            openMolecule(result.molecules[0]);
+            if (result.failures.length > 0) setImportOpen(true);
+          } else setImportOpen(true);
+        }}
+        onOpenMolecule={openMolecule}
+      />
       <OptimizationDialog
         open={optimizationOpen}
         molecule={molecule}

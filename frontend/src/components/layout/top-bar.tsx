@@ -23,7 +23,12 @@ interface TopBarProps {
   onExport: (format: ExportFormat) => void;
   onGenerateOrca: () => void;
   onOptimize: () => void;
+  onOpenImport: () => void;
   onOpenSettings: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 const exportFormats: { id: ExportFormat; label: string; detail: string }[] = [
@@ -42,7 +47,12 @@ export function TopBar({
   onExport,
   onGenerateOrca,
   onOptimize,
+  onOpenImport,
   onOpenSettings,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: TopBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -68,7 +78,7 @@ export function TopBar({
       <Button variant="ghost" size="sm" onClick={onNew}>
         <span className="text-sm leading-none">+</span> New Molecule
       </Button>
-      <Button variant="ghost" size="sm" disabled title="File import is planned for Phase 2">
+      <Button variant="ghost" size="sm" onClick={onOpenImport}>
         <FolderOpen size={13} /> Open
       </Button>
       <Button
@@ -82,10 +92,10 @@ export function TopBar({
       </Button>
 
       <div className="mx-1 h-5 w-px bg-border" />
-      <Button variant="ghost" size="icon-sm" disabled title="Undo history is planned for Phase 2">
+      <Button variant="ghost" size="icon-sm" disabled={!canUndo} title="Undo the last 2D edit" aria-label="Undo" onClick={onUndo}>
         <Undo2 size={14} />
       </Button>
-      <Button variant="ghost" size="icon-sm" disabled title="Redo history is planned for Phase 2">
+      <Button variant="ghost" size="icon-sm" disabled={!canRedo} title="Redo the last 2D edit" aria-label="Redo" onClick={onRedo}>
         <Redo2 size={14} />
       </Button>
       <div className="mx-1 h-5 w-px bg-border" />
@@ -117,7 +127,9 @@ export function TopBar({
               {exportFormats.map((format) => (
                 <button
                   key={format.id}
-                  className="flex w-full items-start gap-3 rounded-md px-2.5 py-2 text-left hover:bg-muted"
+                  className="flex w-full items-start gap-3 rounded-md px-2.5 py-2 text-left hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  disabled={format.id === "smiles" && !molecule.canonical_smiles.trim()}
+                  title={format.id === "smiles" && !molecule.canonical_smiles.trim() ? "No reliable canonical SMILES for an unreviewed topology" : undefined}
                   onClick={() => exportMolecule(format.id)}
                 >
                   <span className="w-12 font-mono text-[11px] font-semibold text-primary">
@@ -143,7 +155,7 @@ export function TopBar({
 
       <div className="ml-auto flex items-center gap-2">
         <span className="hidden rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground xl:inline">
-          MVP · PHASE 1
+          MOLECULAR WORKBENCH
         </span>
         <Button variant="ghost" size="sm" onClick={onOpenSettings}>
           <Settings size={14} /> Settings
